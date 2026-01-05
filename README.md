@@ -39,8 +39,8 @@
 | 配置持久化 | ❌ | ✅ KV 永久存储 |
 
 **绑定步骤：**
-1. Cloudflare Dashboard → Workers & Pages → KV → 创建命名空间
-2. 进入你的 Worker → 设置 → 变量 → KV 命名空间绑定
+1. Cloudflare Dashboard → 存储与数据库 → workers KV → create Instance
+2. 进入你的 Worker → 绑定 → 添加绑定 → KV 命名空间绑定
 3. 添加绑定，**变量名必须为 `KV`**
 4. 保存即可
 
@@ -67,3 +67,7 @@
 ## 🙏 致谢
 
 - [cmliu/CF-Workers-SUB](https://github.com/cmliu/CF-Workers-SUB) - 原项目
+- [Alice Networks LTD](https://url.cn/FQhHP2tg) - 提供订阅转换后端支持
+- [mianayang](https://github.com/mianayang) - 订阅转换后端
+- [ACL4SSR](https://github.com/ACL4SSR/ACL4SSR) - 订阅转换规则配置
+- [肥羊](https://github.com/youshandefeiyang) - 订阅转换后端
