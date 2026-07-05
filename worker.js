@@ -140,17 +140,6 @@ export default {
 
 		const isAdmin = token === mytoken || pathTokenCandidate === mytoken;
 
-		// Public per-SUB page (no token required; view-only)
-		if (request.method === 'GET' && wantsHtml && subName && (url.pathname === `/${subName}` || url.pathname === `/${subName}/`)) {
-			return htmlResponse(renderSubPage({
-				subId: subName,
-				displayName: currentSubConfig.displayName || currentSubConfig.FileName || `${FileName}-${subName}`,
-				origin: url.origin,
-				hostname: url.hostname,
-				guestToken: 访客订阅,
-			}));
-		}
-
 		// Admin dashboard (token required)
 		if (request.method === 'GET' && wantsHtml) {
 			if (isAdmin && (url.pathname === `/${mytoken}` || url.pathname === `/${mytoken}/`)) {
@@ -207,6 +196,7 @@ export default {
 
 		if (!isValidAccess) {
 			if (TG == 1 && url.pathname !== "/" && url.pathname !== "/favicon.ico") await sendMessage(`#异常访问 ${FileName}`, request.headers.get('CF-Connecting-IP'), `UA: ${userAgent}</tg-spoiler>\n域名: ${url.hostname}\n<tg-spoiler>入口: ${url.pathname + url.search}</tg-spoiler>`);
+			if (isPrivateWorkerPath(url.pathname)) return privatePathResponse();
 			if (env.URL302) return Response.redirect(env.URL302, 302);
 			else if (env.URL) return await proxyURL(env.URL, url);
 			else return new Response(await nginx(), {
@@ -459,6 +449,26 @@ function jsonResponse(data, init = {}) {
 	return new Response(JSON.stringify(data), { status: init.status || 200, headers });
 }
 
+function isPrivateWorkerPath(pathname) {
+	return pathname === '/sub' ||
+		pathname.startsWith('/sub/') ||
+		/^\/sub\d+(?:\/|$)/.test(pathname) ||
+		pathname === '/manage' ||
+		pathname.startsWith('/manage/') ||
+		pathname === '/files' ||
+		pathname.startsWith('/files/');
+}
+
+function privatePathResponse() {
+	return new Response('Not found', {
+		status: 404,
+		headers: {
+			'Content-Type': 'text/plain; charset=utf-8',
+			'Cache-Control': 'no-store',
+		},
+	});
+}
+
 function escapeHtml(input) {
 	return String(input || '').replace(/[&<>"']/g, (c) => ({
 		'&': '&amp;',
@@ -702,133 +712,6 @@ function renderHomePage({ title, hasKV }) {
 </html>`;
 }
 
-function renderSubPage({ subId, displayName, origin, hostname, guestToken }) {
-	const safeName = escapeHtml(displayName || subId);
-	const base = `${origin}/${subId}/sub?token=${encodeURIComponent(guestToken || '')}`;
-	const links = [
-		{ key: '通用', url: base },
-		{ key: 'Base64', url: `${base}&b64` },
-		{ key: 'Clash', url: `${base}&clash` },
-		{ key: 'Sing-box', url: `${base}&sb` },
-		{ key: 'Surge', url: `${base}&surge` },
-		{ key: 'QuanX', url: `${base}&quanx` },
-		{ key: 'Loon', url: `${base}&loon` },
-	];
-	const cards = links.map((l) => `
-      <div class="link-card">
-        <div class="link-top">
-          <div class="link-key">${escapeHtml(l.key)}</div>
-          <div class="link-actions">
-            <button class="btn ghost" onclick="copyText('${escapeHtml(l.url)}')">复制</button>
-            <button class="btn ghost" onclick="showQR('${escapeHtml(l.url)}')">二维码</button>
-            <a class="btn ghost" href="${escapeHtml(l.url)}" target="_blank" rel="noreferrer">打开</a>
-          </div>
-        </div>
-        <div class="mono url">${escapeHtml(l.url)}</div>
-      </div>
-	`).join('');
-
-	return `<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="color-scheme" content="light dark" />
-  <title>${safeName}</title>
-  <style>
-    :root{
-      --bg:#0b1220; --card:rgba(255,255,255,.08); --card2:rgba(255,255,255,.06);
-      --text:#e5e7eb; --muted:#a1a1aa; --brand:#6366f1; --border:rgba(255,255,255,.12);
-      --shadow:0 18px 50px rgba(0,0,0,.35); --r:16px;
-    }
-    @media (prefers-color-scheme: light){
-      :root{ --bg:#f6f7fb; --card:#ffffff; --card2:#ffffff; --text:#0f172a; --muted:#475569; --border:#e5e7eb; --shadow:0 18px 50px rgba(15,23,42,.10); }
-    }
-    body{ margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background: radial-gradient(1100px 520px at 20% 10%, rgba(99,102,241,.35), transparent 60%), var(--bg); color:var(--text); }
-    .wrap{ max-width: 980px; margin: 0 auto; padding: 26px 18px 56px; }
-    .hero{ padding: 22px; border: 1px solid var(--border); background: linear-gradient(180deg, var(--card), var(--card2)); border-radius: calc(var(--r) + 6px); box-shadow: var(--shadow); }
-    .k{ color: var(--muted); font-size: 13px; }
-    h1{ margin: 8px 0 4px; font-size: 26px; }
-    .sub{ color: var(--muted); line-height: 1.7; }
-    .grid{ margin-top: 14px; display:grid; grid-template-columns: 1fr; gap: 10px; }
-    .link-card{ border:1px solid var(--border); border-radius: var(--r); background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03)); padding: 14px; }
-    .link-top{ display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
-    .link-key{ font-weight: 650; letter-spacing: .2px; }
-    .link-actions{ display:flex; gap:8px; flex-wrap:wrap; }
-    .btn{ border:0; border-radius: 12px; padding: 10px 12px; cursor:pointer; color: white; background: linear-gradient(135deg, var(--brand), #4f46e5); text-decoration:none; }
-    .ghost{ background: transparent; color: var(--text); border:1px solid var(--border); }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 13px; }
-    .url{ margin-top: 10px; word-break: break-all; color: var(--muted); }
-    .toast{ position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: rgba(0,0,0,.72); color: #fff; padding: 10px 12px; border-radius: 999px; font-size: 13px; opacity: 0; pointer-events:none; transition: opacity .18s ease; }
-    @media (prefers-color-scheme: light){ .toast{ background: rgba(15,23,42,.85); } }
-    .toast.show{ opacity: 1; }
-    .qr-backdrop{ position:fixed; inset:0; background: rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; padding: 16px; }
-    .qr-modal{ width: min(420px, 92vw); border-radius: 18px; border:1px solid var(--border); background: linear-gradient(180deg, var(--card), var(--card2)); box-shadow: var(--shadow); padding: 16px; }
-    .qr-head{ display:flex; align-items:center; justify-content:space-between; gap: 10px; }
-    .qr-title{ font-weight: 650; }
-    .qr-body{ display:flex; gap: 14px; flex-direction: column; align-items: center; margin-top: 12px; }
-    #qr{ background:#fff; padding: 12px; border-radius: 16px; }
-  </style>
-  <script src="https://cdn.jsdelivr.net/npm/@keeex/qrcodejs-kx@1.0.2/qrcode.min.js"></script>
-</head>
-<body>
-  <div class="wrap">
-    <div class="hero">
-      <div class="k">SUB 页面 · ${escapeHtml(hostname || '')} /${escapeHtml(subId || '')}</div>
-      <h1>${safeName}</h1>
-      <div class="sub">下方为该 SUB 的访客订阅地址（可复制/生成二维码）。</div>
-      <div class="grid">${cards}</div>
-    </div>
-  </div>
-
-  <div class="toast" id="toast">已复制</div>
-
-  <div class="qr-backdrop" id="qrBackdrop" onclick="closeQR(event)">
-    <div class="qr-modal" role="dialog" aria-modal="true">
-      <div class="qr-head">
-        <div class="qr-title">订阅二维码</div>
-        <button class="btn ghost" onclick="hideQR()">关闭</button>
-      </div>
-      <div class="qr-body">
-        <div id="qr"></div>
-        <div class="mono url" id="qrText"></div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    const toast = document.getElementById('toast');
-    let toastTimer;
-    function showToast(msg){
-      toast.textContent = msg || '已复制';
-      toast.classList.add('show');
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(()=>toast.classList.remove('show'), 900);
-    }
-    async function copyText(text){
-      try{
-        await navigator.clipboard.writeText(text);
-        showToast('已复制');
-      }catch(e){
-        showToast('复制失败');
-      }
-    }
-    function showQR(text){
-      const backdrop = document.getElementById('qrBackdrop');
-      const qrDiv = document.getElementById('qr');
-      const qrText = document.getElementById('qrText');
-      qrDiv.innerHTML = '';
-      qrText.textContent = text;
-      backdrop.style.display = 'flex';
-      new QRCode(qrDiv, { text, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.Q });
-    }
-    function hideQR(){ document.getElementById('qrBackdrop').style.display='none'; }
-    function closeQR(e){ if(e.target && e.target.id === 'qrBackdrop') hideQR(); }
-  </script>
-</body>
-</html>`;
-}
-
 function renderManagePage({ title, origin, hostname, adminPath, mainEditPath, guestToken, main, subs, hasKV }) {
 	const safeTitle = escapeHtml(title || 'SUB 管理');
 	const safeGuest = String(guestToken || '').trim();
@@ -898,7 +781,6 @@ function renderManagePage({ title, origin, hostname, adminPath, mainEditPath, gu
             <div class="card-sub mono">${escapeHtml(hostname || '')}${viewPath}</div>
           </div>
           <div class="actions">
-            <a class="btn ghost" href="${escapeHtml(viewPath)}" target="_blank" rel="noreferrer">SUB 页面</a>
             <a class="btn ghost" href="${escapeHtml(editPath)}" target="_blank" rel="noreferrer">编辑链接</a>
           </div>
         </div>
@@ -1623,7 +1505,6 @@ async function KV(request, env, txt = 'ADD.txt', guest, subName = null, currentS
 		// 生成订阅链接的前缀路径
 		const subPathPrefix = subName ? `/${subName}` : '';
 		const managePath = `/${mytoken}`;
-		const publicSubPath = subName ? `/${subName}` : '/';
 
 		const html = `
 			<!DOCTYPE html>
@@ -1805,7 +1686,6 @@ async function KV(request, env, txt = 'ADD.txt', guest, subName = null, currentS
 						</div>
 						<div class="topbar-actions">
 							<button class="back-btn" onclick="window.location.href='${managePath}'">返回管理</button>
-							${subName ? `<button class="back-btn" onclick="window.location.href='${publicSubPath}'">SUB 页面</button>` : ''}
 						</div>
 					</div>
 
